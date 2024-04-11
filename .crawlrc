@@ -1,0 +1,567 @@
+tile_display_mode = glyphs
+travel_delay = 1
+default_manual_training = true
+rest_wait_both = true
+explore_auto_rest = true
+autofight_fires = true
+autopickup = $?!+"/♦(
+autofight_wait = true
+
+bindkey = [tab] CMD_AUTOFIGHT_NOMOVE
+bindkey = [~] CMD_LUA_CONSOLE
+
+arena_dump_msgs = true
+
+mons := mon_glyph
+# Monsters that can be easy to miss
+mons ^= * : ✱
+mons ^= dancing weapon : cyan {
+mons ^= spectral weapon : lightcyan {
+# Classed Demonspawn
+mon += blood saint:9
+mon += warmonger:9
+mon += corrupter:9
+mon += black sun:9
+
+equip_unequip = true
+
+autofight_stop  = 70
+autofight_caught = true
+autofight_wait = false
+
+show_travel_trail = false
+explore_stop += greedy_items
+
+msc := message_colour
+msc += mute:returns to your side
+msc += mute:a demon appears
+msc += mute:puff of smoke
+msc += mute:carefully avoids
+msc += mute:is recalled
+msc += mute:wall.*burn.*your
+msc += mute:dissolves? into (sparkling lights|shadows)
+msc += mute:(crumbles|melts) away\.
+msc += mute:(merges|forms) itself .* the air
+msc += mute:you swap places
+msc += mute:your.*(looks stronger|shudders|resists)
+msc += mute:your.*(stumbles backwards|holds.*ground)
+msc += mute:your.*(blinks|safely over)
+msc += mute:(phases out.*|misses) (your|something).*
+msc += mute:your.*(picks up|drops)
+msc += mute:your.*basks in the mutagenic energy
+msc += mute:your.*(struggles|tears|pulls away).*(web|net)
+
+more := force_more_message
+
+more += You don't .* that spell
+more += You fail to use your ability
+more += You miscast.*(Blink|Borgnjor|Door|Invisibility)
+more += You can't (read|drink|do)
+more += You cannot .* while unable to breathe
+more += You cannot .* in your current state
+more += when .*silenced
+more += too confused
+more += There's something in the way
+more += There's nothing to (close|open) nearby
+more += not good enough to have a special ability
+more += You are too berserk
+more += no means to grasp
+more += That item cannot be evoked
+more += You are held in a net
+more += You don't have any such object
+more += You can't unwield
+more += enough magic points
+more += You don't have the energy to cast that spell
+more += You are unable to access your magic
+
+more += Your surroundings flicker
+more += You cannot teleport right now
+more += A sentinel's mark forms upon you
+more += (blundered into a|invokes the power of) Zot
+more += enter a teleport trap
+more += Ouch! That really hurt!
+more += dispelling energy hits you
+more += You are blasted by holy energy!
+more += You are (blasted|electrocuted)!
+more += You are.*(confused|poisoned)
+more += god:(sends|finds|silent|anger)
+more += You feel a surge of divine spite
+more += disloyal to dabble
+more += lose consciousness
+more += You are too injured to fight blindly
+more += calcifying dust hits
+more += Space warps.*around you
+more += Space bends around you
+more += watched by something
+more += flickers and vanishes!
+more += doesn't seem very happy
+more += is no longer charmed
+
+more += hell_effect:
+
+more += You feel yourself slow down
+more += You are starting to lose your buoyancy
+more += Your hearing returns
+more += Your transformation is almost over
+more += You have a feeling this form
+more += You feel yourself come back to life
+more += time is quickly running out
+more += life is in your own hands
+more += You start to feel a little slower
+more += You feel less protected from missiles
+
+# Dangerous monsters we force_more when first seen.
+# Things with ranged (or extremely fast), irresistable effects.
+more += ((floating|shining) eye|dream sheep|death drake).*into view
+more += (wretched star|apocalypse crab|death drake).*into view
+more += (entropy weaver|torpor snail|spriggan druid).*into view
+more += (vault (warden|sentinel)|merfolk (avatar|siren)).*into view
+more += (guardian serpent|draconian shifter|convoker|death cob).*into view
+more += (phantasmal warrior|air elemental).*into view
+# Paralysis/Petrify/Banish
+more += (orc sorcerer|(?<!orc )wizard|ogre mage|great orb of eyes|sphinx).*into view
+more += (vampire knight|basilisk|deep elf (sorcerer|demonologist)).*into view
+# Torment/flay or hellfire
+more += (flayed ghost|royal mummy|mummy priest|fiend|tzitzimitl).*into view
+more += (tormentor|curse toe|curse skull|hell sentinel|hellion).*into view
+more += (deep elf (sorcerer|high priest)|draconian scorcher).*into view
+# Things that can hit for over 90+ damage in a turn that is either ranged or
+# very fast.
+more += ((deep elf|draconian) annihilator|tengu reaver).*into view
+more += (lich|orb of fire|executioner|juggernaut|shrike).*into view
+
+# Any uniques and any pan lords
+more += (?-i:[A-Z]).* comes? into view
+
+stop := runrest_stop_message
+ignore := runrest_ignore_message
+
+stop += A huge blade swings out and slices into you
+stop += starving
+stop += wrath finds you
+stop += lose consciousness
+stop += hell_effect:
+
+stop += You feel yourself slow down
+stop += You are starting to lose your buoyancy
+stop += Your hearing returns
+stop += Your transformation is almost over
+stop += back to life
+stop += time is quickly running out
+stop += life is in your own hands
+stop += is no longer charmed
+
+ignore += contamination has completely
+ignore += your breath back
+
+ignore += talk:
+ignore += talk_visual:
+ignore += friend_spell:
+ignore += friend_enchant:
+ignore += friend_action:
+ignore += sound:
+
+macros += M S ===save_with_message
+
+{
+-- Equipment autopickup (by Medar and various others)
+local function pickup_equipment(it, name)
+  if it.is_useless then return end
+
+  local class = it.class(true)
+  if class == "armour" then
+    local good_slots = {cloak="Cloak", helmet="Helmet",
+                        gloves="Gloves", boots="Boots"}
+    st, _ = it.subtype()
+
+    -- Autopickup found aux armour if 1) we don't have any or 2) it's artefact,
+    -- or 3) if we don't have artefact or ego armour, and the found armour is
+    -- ego.
+    if good_slots[st] ~= nil then
+      if good_slots[st] == "Gloves" and you.has_claws() > 0 then return end
+
+      if it.artefact then return true end
+
+      local cur = items.equipped_at(good_slots[st])
+      if cur == nil then return true end
+
+      if cur.branded or cur.artefact then return end
+      if it.branded then return true end
+      -- Autopickup found body armour of the same kind we're wearing, according
+      -- to conditions (2) and (3) above used for aux slots.
+    elseif st == "body" then
+      local cur = items.equipped_at("armour")
+      if cur == nil then return end
+      if cur.name("qual") ~= it.name("qual") then return end
+
+      if it.artefact then return true end
+
+      if cur.branded or cur.artefact then return end
+      if it.branded then return true end
+    end
+  end
+  return
+end
+
+add_autopickup_func(pickup_equipment)
+
+last_turn = you.turns()
+
+-- Each entry must have a 'name' field with a descriptive name, a 'pattern'
+-- field, a 'cond' field giving the condition type, and a 'cutoff' field giving
+-- the max value for where the force_more will apply. Possible values for
+-- 'cond' are xl and maxhp.
+--
+-- The 'pattern' field's value can be either a regexp string or array of regexp
+-- strings matching the appropriate monster(s). Any values are joined by "|" to
+-- make a new force_more of the form:
+--
+-- ((?!spectral )VALUE1|VALUE2|...)(?! (skeleton|zombie|simularcrum)).*into view".
+--
+-- To allow derived undead forms of a monster to match, include 'spectral ' at
+-- the beginning of and/or ' (skeleton|zombie|simularcrum)' at the end of your
+-- pattern for that monster.
+fm_patterns = {
+  -- Fast, early game Dungeon problems for chars with low mhp.
+  {name = "30mhp", cond = "maxhp", cutoff = 30,
+   pattern = "adder|hound"},
+  -- Dungeon monsters that can damage you for close to 50% of your mhp with a
+  -- ranged attack.
+  {name = "40mhp", cond = "maxhp", cutoff = 40,
+   pattern = "orc priest|electric eel"},
+  {name = "60mhp", cond = "maxhp", cutoff = 60,
+   pattern = "acid dragon|steam dragon|manticore"},
+  {name = "70mhp", cond = "maxhp", cutoff = 70,
+   pattern = "centaur(?! warrior)|meliai|yaktaur(?! captain)"},
+  {name = "80mhp", cond = "maxhp", cutoff = 80,
+   pattern = "gargoyle|orc (warlord|knight)"},
+  {name = "90mhp", cond = "maxhp", cutoff = 90,
+   pattern = {"centaur warrior", "deep elf archer", "efreet",
+              "molten gargoyle", "tengu conjurer"} },
+  {name = "110mhp", cond = "maxhp", cutoff = 110,
+   pattern = {"centaur warrior", "deep elf (mage|knight)", "cyclops", "efreet",
+              "molten gargoyle", "tengu conjurer", "yaktaur captain",
+              "necromancer", "deep troll earth mage", "hell knight",
+              "stone giant"} },
+  {name = "160mhp", cond = "maxhp", cutoff = 160,
+   pattern = {"(fire|ice|quicksilver|shadow|storm) dragon",
+              "(fire|frost) giant", "war gargoyle",
+              "draconian (knight|stormcaller"} },
+} -- end fm_patterns
+
+active_fm = {}
+-- Set to true to get a message when the fm change
+notify_fm = false
+
+-- Wrapper of crawl.mpr() that prints text in white by default.
+if not mpr then
+  mpr = function (msg, color)
+    if not color then
+      color = "white"
+    end
+    crawl.mpr("<" .. color .. ">" .. msg .. "</" .. color .. ">")
+  end
+end
+
+function init_force_mores()
+  for i,v in ipairs(fm_patterns) do
+    active_fm[#active_fm + 1] = false
+  end
+end
+
+function update_force_mores()
+  local activated = {}
+  local deactivated = {}
+  local hp, maxhp = you.hp()
+  for i,v in ipairs(fm_patterns) do
+    local msg = nil
+    if type(v.pattern) == "table" then
+      for j, p in ipairs(v.pattern) do
+        if msg == nil then
+          msg = p
+        else
+          msg = msg .. "|" .. p
+        end
+      end
+    else
+      msg = v.pattern
+    end
+    msg = "(?<!spectral )(" .. msg .. ")(?! (skeleton|zombie|simulacrum)).*into view"
+    local action = nil
+    local fm_name = v.pattern
+    if v.name then
+      fm_name = v.name
+    end
+    if not v.cond and not active_fm[i] then
+      action = "+"
+    elseif v.cond == "xl" then
+      if active_fm[i] and you.xl() >= v.cutoff then
+        action = "-"
+      elseif not active_fm[i] and you.xl() < v.cutoff then
+        action = "+"
+      end
+    elseif v.cond == "maxhp" then
+      if active_fm[i] and maxhp >= v.cutoff then
+        action = "-"
+      elseif not active_fm[i] and maxhp < v.cutoff then
+        action = "+"
+      end
+    end
+    if action == "+" then
+      activated[#activated + 1] = fm_name
+    elseif action == "-" then
+      deactivated[#deactivated + 1] = fm_name
+    end
+    if action ~= nil then
+      local opt = "force_more_message " .. action .. "= " .. msg
+      crawl.setopt(opt)
+      active_fm[i] = not active_fm[i]
+    end
+  end
+  if #activated > 0 and notify_fm then
+    mpr("Activating force_mores: " .. table.concat(activated, ", "))
+  end
+  if #deactivated > 0 and notify_fm then
+    mpr("Deactivating force_mores: " .. table.concat(deactivated, ", "))
+  end
+end
+
+local last_turn = nil
+function force_mores()
+  if last_turn ~= you.turns() then
+    update_force_mores()
+    last_turn = you.turns()
+  end
+end
+
+init_force_mores()
+
+message_color = "white"
+
+-- Wrapper of crawl.mpr() that prints text in white by default.
+if not mpr then
+  mpr = function (msg, color)
+    if not color then
+      color = "white"
+    end
+    crawl.mpr("<" .. color .. ">" .. msg .. "</" .. color .. ">")
+  end
+end
+
+function save_with_message()
+  if you.turns() == 0 then
+    crawl.sendkeys("S")
+    return
+  end
+  crawl.formatted_mpr("Save game and exit?", "prompt")
+  local res = crawl.getch()
+  if not (string.char(res) == "y" or string.char(res) == "Y") then
+    crawl.formatted_mpr("Okay, then.", "prompt")
+    return
+  end
+  crawl.formatted_mpr("Leave a message: ", "prompt")
+  local res = crawl.c_input_line()
+  c_persist.message = res
+  crawl.sendkeys("")
+end
+
+function load_message()
+  if c_persist.message and c_persist.message ~= "nil"
+  and c_persist.message ~= "" then
+    mpr("MESSAGE: " .. c_persist.message, message_color)
+    c_persist.message = nil
+  end
+end
+
+}
+
+{
+-----------------------------
+---- Begin char_defaults ----
+-----------------------------
+
+-- See README.md for documentation.
+
+weapon_skills = { "Maces & Flails", "Axes", "Polearms", "Staves",
+                  "Unarmed Combat", "Short Blades", "Long Blades" }
+ranged_skills = { "Throwing", "Ranged Weapons" }
+other_skills = { "Fighting", "Armour", "Dodging", "Shields", "Stealth",
+                 "Spellcasting", "Conjurations", "Hexes", "Summonings",
+                 "Necromancy", "Translocations", "Alchemy", "Fire Magic",
+                 "Ice Magic", "Air Magic", "Earth Magic", "Invocations",
+                 "Evocations", "Shapeshifting" }
+skill_glyphs = { [1] = "+", [2] = "*" }
+chdat = nil
+char_combo = you.race() .. you.class()
+loaded_attempted = false
+
+-- Wrapper of crawl.mpr() that prints text in white by default.
+if not mpr then
+  mpr = function (msg, color)
+    if not color then
+      color = "white"
+    end
+    crawl.mpr("<" .. color .. ">" .. msg .. "</" .. color .. ">")
+  end
+end
+
+function skill_message(prefix, skill, skill_type, value)
+  local msg = ""
+  if prefix then
+    msg = prefix .. ";"
+  end
+  if skill_type then
+    msg = msg .. skill_type .. "(" .. skill .. "):" .. value
+  else
+    msg = msg .. skill .. ":" .. value
+  end
+  return msg
+end
+
+function save_char_defaults(quiet)
+  if you.class() == "Wanderer" then
+    return
+  end
+  if not c_persist.char_defaults then
+    c_persist.char_defaults = { }
+  end
+  c_persist.char_defaults[char_combo] = { }
+  chdat = c_persist.char_defaults[char_combo]
+  local msg = nil
+  local have_weapon = false
+  for _,sk in ipairs(weapon_skills) do
+    if you.train_skill(sk) > 0 then
+      chdat["Weapon"] = you.train_skill(sk)
+      msg = skill_message(nil, sk, "Weapon",
+                          skill_glyphs[chdat["Weapon"]])
+      have_weapon = true
+      break
+    end
+  end
+  if not have_weapon then
+    chdat["Weapon"] = nil
+  end
+  local have_ranged = false
+  for _,sk in ipairs(ranged_skills) do
+    if you.train_skill(sk) > 0 then
+      chdat["Ranged"] = you.train_skill(sk)
+      msg = skill_message(msg, sk, "Ranged",
+                          skill_glyphs[chdat["Ranged"]])
+      have_ranged = true
+      break
+    end
+  end
+  if not have_ranged then
+    chdat["Ranged"] = nil
+  end
+  for _,sk in ipairs(other_skills) do
+    if you.train_skill(sk) > 0 then
+      chdat[sk] = you.train_skill(sk)
+      msg = skill_message(msg, sk, nil, skill_glyphs[chdat[sk]])
+    else
+      chdat[sk] = nil
+    end
+  end
+  if not quiet then
+    mpr("Saved default for " .. char_combo .. ": " .. msg)
+  end
+end
+
+function have_defaults()
+  return  you.class() ~= "Wanderer"
+    and c_persist.char_defaults ~= nil
+    and c_persist.char_defaults[char_combo] ~= nil
+end
+
+function load_char_defaults(quiet)
+  if not have_defaults() then
+    return
+  end
+  local msg = nil
+  local found_weapon = false
+  chdat = c_persist.char_defaults[char_combo]
+  for _,sk in ipairs(weapon_skills) do
+    if you.base_skill(sk) > 0 and chdat["Weapon"] then
+      you.train_skill(sk, chdat["Weapon"])
+      msg = skill_message(msg, sk, "Weapon",
+                          skill_glyphs[chdat["Weapon"]])
+      found_weapon = true
+    else
+      you.train_skill(sk, 0)
+    end
+  end
+  if chdat["Weapon"] and not found_weapon then
+    you.train_skill("Unarmed Combat", chdat["Weapon"])
+    msg = skill_message(msg, "Unarmed Combat", "Weapon",
+                        skill_glyphs[chdat["Weapon"]])
+  end
+  local found_ranged = false
+  for _,sk in ipairs(ranged_skills) do
+    if you.base_skill(sk) > 0 and chdat["Ranged"] then
+      you.train_skill(sk, chdat["Ranged"])
+      msg = skill_message(msg, sk, "Ranged",
+                          skill_glyphs[chdat["Ranged"]])
+      found_ranged = true
+    else
+      you.train_skill(sk, 0)
+    end
+  end
+  if chdat["Ranged"] and not found_ranged then
+    you.train_skill("Throwing", chdat["Ranged"])
+    msg = skill_message(msg, "Throwing", "Ranged",
+                        skill_glyphs[chdat["Ranged"]])
+  end
+  for _,sk in ipairs(other_skills) do
+    if chdat[sk] then
+      you.train_skill(sk, chdat[sk])
+      msg = skill_message(msg, sk, nil, skill_glyphs[chdat[sk]])
+    else
+      you.train_skill(sk, 0)
+    end
+  end
+  if not quiet and msg ~= "" then
+    mpr("Loaded default for " .. char_combo .. ": " .. msg)
+  end
+end
+
+function char_defaults(quiet)
+  if you.turns() ~= 0 then
+    return
+  end
+
+  if not load_attempted then
+    load_char_defaults(quiet)
+    load_attempted = true
+
+    -- Open the skill menu if we don't have settings to load.
+    if not have_defaults() then
+      crawl.sendkeys("m")
+    end
+  end
+end
+
+---------------------------
+---- End char_defaults ----
+---------------------------
+}
+
+# The ready() function  is needed for code that has to process each turn or UI
+# action.
+{
+function ready()
+
+  -- Open skill screen on turn 0.
+  if not skills_set and you.turns() == 0 then
+      crawl.sendkeys("m")
+      skills_set = true
+  end
+
+  -- force_mores.lua
+  force_mores()
+
+-- load_message.lua
+    load_message()
+
+    char_defaults()
+end
+}
